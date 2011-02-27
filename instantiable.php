@@ -93,7 +93,8 @@ class InstantiableBehavior extends ModelBehavior {
 
             // Loop through each column of the model and check if there is 
             // supplied data for that column.
-            foreach($instance->schema() as $column => $type) {
+            $fields = array_merge($instance->schema(), $instance->virtualFields);
+            foreach($fields as $column => $type) {
                 // Is the column in the data? If so add the value as a attribute of the model.
                 if (isset($record[$instance->name][$column])) { // Is this array in [Model][Column] form?
                     $instance->{'i'.$column} = $record[$instance->name][$column];
@@ -147,7 +148,7 @@ class InstantiableBehavior extends ModelBehavior {
         foreach($instance->{$relationship} as $model => $params) {
             // Is there supplied data for this model?
             if(isset($record[$model])) { // If so then pass the data for that model to the model to create a new instance of the related model.
-                $instance->{'i'.$model} = $this->create($model, $record[$model]);
+                $instance->{'i'.$model} = $this->create($params['className'], $record[$model]);
             } elseif (!empty($record[$model])) { // If not then set the value to null
                 $instance->{'i'.$model} = null;
             }
@@ -162,6 +163,7 @@ class InstantiableBehavior extends ModelBehavior {
     // new instance.
     function &getModel($model)
     {
+        App::import('Model', $model);
         // Make sure our $modelClass name is camelized
         $modelClass = Inflector::camelize($model);
 
