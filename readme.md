@@ -13,6 +13,7 @@ To have a call to find return model objects instead just add 'Instantiable' => t
 
 If you would like every call to find to return model objects just add the alwaysInstantiate value when you add the behavior like so:
     $ var $actAs = array('Instantiable' => array('alwaysInstantiate' => true));
+Note: This will likely cause issues if you have baked your views since they will be looking for a data array instead of a model object.
 
 Then given a user model who's normal data from this find:
     $ $this->User->find('first');
