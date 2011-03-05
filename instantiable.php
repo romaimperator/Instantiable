@@ -75,8 +75,6 @@ class InstantiableBehavior extends ModelBehavior {
         if (!isset($data[0])) { // If there isn't a 0 index then it is not an array so make it an array.
             $data = array(0 => $data);
             $was_array = false;
-        } elseif (count($data) == 1) { // If there is only one record then it is not an array.
-            $was_array = false;
         } else { // Otherwise it is an array.
             $was_array = true;
         }
@@ -84,40 +82,65 @@ class InstantiableBehavior extends ModelBehavior {
         // Create the temporary array to hold the instances of the data
         $output = array();
 
-        //debug($data);
+        // Retrieve a copy of the base model to grab all of the relationships
+        $base_model = $this->getModel($name);
+        $multiple_relationships = array_merge($base_model->hasMany, $base_model->hasAndBelongsToMany);
+        $single_relationships = array_merge($base_model->hasOne, $base_model->belongsTo);
+
         // Loop through each of supplied records and produce a model instance 
         // for each one of them.
         foreach($data as $record) {
             // Retrieve an instance of the model we are in
-            $instance = $this->getModel($name);
+            $instance =& $this->getModel($name);
 
-            // Loop through each column of the model and check if there is 
-            // supplied data for that column.
-            $fields = array_merge($instance->schema(), $instance->virtualFields);
-            foreach($fields as $column => $type) {
-                // Is the column in the data? If so add the value as a attribute of the model.
-                if (isset($record[$instance->name][$column])) { // Is this array in [Model][Column] form?
-                    $instance->{'i'.$column} = $record[$instance->name][$column];
-                } elseif (isset($record[$column])) { // Or is it just in [Column] form?
-                    $instance->{'i'.$column} = $record[$column];
-                } else { // Or is there no data for this column?
-                    $instance->{'i'.$column} = null;
+            // Cleanup this instance so it only contains the required information
+            $instance =& $this->cleanUp($instance);
+
+            $this->create_fields($instance, $record[$name]);
+
+            // Loop through all of the related models that can return an array
+            // of records and create model instances for them
+            foreach($multiple_relationships as $related_model => $params) {
+                $association_name = $params['className'];
+
+                // If there is data for this association then ensure we are
+                // dealing with an array
+                if (isset($record[$association_name])) {
+                    if (!isset($record[$association_name][0])) {
+                        $record[$association_name] = array($record[$association_name]);
+                    }
+
+                    // Loop through each record making a model instance for
+                    // each and appending to the base model instance
+                    foreach($record[$association_name] as $item) {
+                        $model =& $this->getModel($association_name);
+
+                        $model =& $this->cleanUp($model);
+
+                        $this->create_fields($model, $item);
+
+                        $instance->{'i_'.$association_name}[] = $model;
+                    }
                 }
             }
 
-            // Now continue by checking for related model data
-        
-            // Check the hasOne relationships
-            $this->check_and_add_model($instance, 'hasOne', $record);
-            
-            // Check the hasMany relationships
-            $this->check_and_add_model($instance, 'hasMany', $record);
+            // Loop through all of the related models that can return a single
+            // record and create model instances for them
+            foreach($single_relationships as $related_model => $params) {
+                $association_name = $params['className'];
 
-            // Check the belongsTo relationships
-            $this->check_and_add_model($instance, 'belongsTo', $record);
+                // If there is data for this association then create a model
+                // instance for it
+                if (isset($record[$association_name])) {
+                    $model =& $this->getModel($association_name);
 
-            // Check the hasAndBelongsToMany relationships
-            $this->check_and_add_model($instance, 'hasAndBelongsToMany', $record);
+                    $model =& $this->cleanUp($model);
+
+                    $this->create_fields($model, $record[$association_name]);
+
+                    $instance->{'i_'.$association_name} = $model;
+                }
+            }
 
             // Add instance that was just created to the finished array of 
             // model instances.
@@ -134,25 +157,42 @@ class InstantiableBehavior extends ModelBehavior {
     }
 
     /**
-     * Loops through the models relationships and checks if theres data for 
-     * them. If so it creates a new attribute for the model and recurses 
-     * creating model instances for the related models.
+     * Loops through all real fields and virtual fields and creates attributes 
+     * on the model instance for them.
      *
-     * @param &$instance the model instance to modify
-     * @param $relationship a string for the type of relationship
-     * @param $record the data to add
-     * @return nothing
+     * @param &$instance the model instance to add the fields to
+     * @param $record the array of data to use
      */
-    function check_and_add_model(&$instance, $relationship, $record) {
-        // Loop through each relationship and check if there is supplied data.
-        foreach($instance->{$relationship} as $model => $params) {
-            // Is there supplied data for this model?
-            if(isset($record[$model])) { // If so then pass the data for that model to the model to create a new instance of the related model.
-                $instance->{'i'.$model} = $this->create($params['className'], $record[$model]);
-            } elseif (!empty($record[$model])) { // If not then set the value to null
-                $instance->{'i'.$model} = null;
+    function create_fields(&$instance, $record) {
+        // Loop through each column of the model and check if there is 
+        // supplied data for that column.
+        $fields = array_merge($instance->schema(), $instance->virtualFields);
+        foreach($fields as $column => $type) {
+            // Is the column in the data? If so add the value as a attribute of the model.
+            if (isset($record[$instance->name][$column])) { // Is this array in [Model][Column] form?
+                $instance->{'i_'.$column} = $record[$instance->name][$column];
+            } elseif (isset($record[$column])) { // Or is it just in [Column] form?
+                $instance->{'i_'.$column} = $record[$column];
+            } else { // Or is there no data for this column?
+                $instance->{'i_'.$column} = null;
             }
         }
+    }
+
+    /**
+     * Removes unnecessary data from the models to limit memory usage and increase performance.
+     *
+     * @param &$instance the instance to clean up
+     * @return the model that was cleaned up
+     */
+    function cleanUp(&$instance) {
+        foreach($instance as $attr => $val) {
+            if (!($attr == '_schema' || $attr == 'name' || $attr == 'virtualFields')) {
+                unset($instance->{$attr});
+            }
+        }
+
+        return $instance;
     }
 
     // The following code is written by Felix Geisendörfer from

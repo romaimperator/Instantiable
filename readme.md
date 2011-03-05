@@ -30,33 +30,17 @@ would look like this:
     $ )
 the model object array would now look like this:
     $ UserObject => (
-    $     [iusername] => users_username,
-    $     [iemail] => users_email,
-    $     [iPost] => PostObject => (
-    $         [isubject] => post_subject,
-    $         [ibody] => post_body
+    $     [i_username] => users_username,
+    $     [i_email] => users_email,
+    $     [i_Post] => PostObject => (
+    $         [i_subject] => post_subject,
+    $         [i_body] => post_body
     $     )
     $ )
-Note: In order to avoid name collisions with attributes of the model all associated models and model column names are prepended with a lowercase 'i'.
-Also if the user had more than one post returned the Post key would point to an array of PostObjects.
+Note: In order to avoid name collisions with attributes of the model all associated models and model column names are prepended with a lowercase 'i_'.
+Also if the user had more than one post returned the i_Post key would point to an array of PostObjects.
 
 Now you can do the following:
     $ $user = $this->User->find('first', array('Instantiable' => true));
-    $ echo $user->username;
-    $ echo $user->email;
-
-Details
--------
-
-This behavior works by creating base models from the model type the find is called from. For example, given a call to find like this:
-    $ $users = $this->User->find('all', array('Instantiable' => true));
-then $users is of the same type as the User model.
-Also, if the find returns more than one type of user than $users will be an array of User model objects.
-
-For each of the base models the behavior loops through all of the table columns given by $model->schema() and checks if the find data has that column. If it does then the value is assigned to an attribute named i<column name>. So for example value of the column name username would then be assigned to a new model attribute named iusername.
-
-Next after creating attributes for each column, each association type is checked for related data. For example if the User model has a hasMany relationship to the Post model then while processing the User model find data it will check if the find has also returned data from the Post model. If there is data for the Post model it recurses running through and creating a Post model which of course then checks for Post column names and then Post associations.
-
-Once all models have been created, either a single model object (with any associated data stored in an attribute) or an array of models will be returned from the find method.
-
-Note: Even if the data array would normally contain an array with a single element such as when using find('all') this behavior returns that as a single model NOT an array. Yes I'm thinking about changing this.
+    $ echo $user->i_username;
+    $ echo $user->i_email;
