@@ -71,6 +71,11 @@ class InstantiableBehavior extends ModelBehavior {
      * @return either a single model instance or array of instances
      */
     function create($name, $data) {
+        // Check that there is data returned
+        if (empty($data)) {
+            return array();
+        }
+
         // Check whether this is an array of model data or a single record
         if (!isset($data[0])) { // If there isn't a 0 index then it is not an array so make it an array.
             $data = array(0 => $data);
