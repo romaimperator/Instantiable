@@ -110,7 +110,7 @@ class InstantiableBehavior extends ModelBehavior {
 
                 // If there is data for this association then ensure we are
                 // dealing with an array
-                if (isset($record[$association_name])) {
+                if (!empty($record[$association_name])) {
                     if (!isset($record[$association_name][0])) {
                         $record[$association_name] = array($record[$association_name]);
                     }
