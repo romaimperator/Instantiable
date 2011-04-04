@@ -40,6 +40,8 @@ class InstantiableBehavior extends ModelBehavior {
     function beforeFind(&$model, $query) {
         if (isset($query['Instantiable']) && $query['Instantiable']) {
             $model->instantiable = true;
+        } else {
+            $model->instantiable = false;
         }
     }
 
